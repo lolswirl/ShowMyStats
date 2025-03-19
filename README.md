@@ -15,16 +15,16 @@ The location of the stat frame can be configured.
 For every stat can be decided whether it is shown or not. Furthermore, it can be chosen any color for any stat to highlight it.
 
 Following stats are currently supported:
-* All Primary Stats: 
-    - Strength
-    - Agility
-    - Intellect
-    - Stamina
-* Secondary Stats:
-    - Mastery
-    - Spell Crit
-    - Spell Haste
-    - Versatility
-    - Absorb
-    - Speed
+- All Primary Stats:
+    - Strength
+    - Agility
+    - Intellect
+    - Stamina
+- Secondary Stats:
+    - Mastery
+    - Spell Crit
+    - Spell Haste
+    - Versatility
+    - Absorb
+    - Speed
     - Armor
