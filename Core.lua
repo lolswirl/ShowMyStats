@@ -3,7 +3,6 @@ local AceGUI = LibStub("AceGUI-3.0")
 local LSM = LibStub("LibSharedMedia-3.0")
 --local AceGUISharedMediaWidgets = LibStub:GetLibrary("AceGUISharedMediaWidgets-1.0", true)
 
-
 local statID_to_description = {
     strength = "Strength",
     agility = "Agility",
@@ -38,11 +37,11 @@ local defaults = {
             "agility",
             "intellect",
             "stamina",
-
+        
             "crit",
             "haste",
             "mastery",
-            "versatilityOutput",
+            "versatility",
             "versatilityDefense",
             "lifesteal",
             "avoidance",
@@ -171,10 +170,6 @@ function ShowMyStatsAddon:OnInitialize()
     -- Code that you want to run when the addon is first loaded goes here.
     local defaultProfile = true
     self.db = LibStub("AceDB-3.0"):New("ShowMyStatsDB", defaults, defaultProfile)
-    print(self.db:GetCurrentProfile())
-    for k,v in pairs(self.db:GetProfiles()) do
-      print(k,v)
-    end
     self.db.RegisterCallback(self, "OnProfileChanged", "RefreshConfig")
     self.db.RegisterCallback(self, "OnProfileCopied", "RefreshConfig")
     self.db.RegisterCallback(self, "OnProfileReset", "RefreshConfig")
@@ -265,27 +260,30 @@ LibStub("AceConfig-3.0"):RegisterOptionsTable("ShowMyStats", options, {"sms", "s
 
 
 function ShowMyStatsAddon:CreateInterfaceOptionsFrame()
-    local frame = CreateFrame("Frame", "ShowMyStats", UIParent);
-    --frame:SetHeight(500)
+    local frame = CreateFrame("Frame", "ShowMyStats", UIParent)
     frame.name = "ShowMyStats"
-    InterfaceOptions_AddCategory(frame)
+
+    -- Check if the new function is available
+    --if SettingsPanel then
+    --    SettingsPanel:AddCategory(frame)
+    --else
+        -- Fallback to the old function if the new one isn't available
+    --    InterfaceOptions_AddCategory(frame)c
+    --end
 
     local fontString = frame:CreateFontString(nil, "OVERLAY", "GameTooltipText")
     fontString:SetPoint("CENTER", 0, 200)
     fontString:SetText("Please click the button below to open the configuration panel of this Addon. You can also type /sms or /showmystats into your chat window to open it.")
     fontString:SetWidth(500)
-    --fontString:SetHeight(500)
     fontString:Show()
 
     local button = CreateFrame("Button", "ButtonTest", frame, "UIPanelButtonTemplate")
     button:SetSize(180, 22)
     button:SetText("Open configuration panel")
-    button:SetPoint("CENTER",0, 150)
+    button:SetPoint("CENTER", 0, 150)
     button:SetScript("OnClick", function()
         self:ShowConfigFrame()
     end)
-    --button:Show()
-    --frame:AddChild(button)
 end
 
 
@@ -332,6 +330,7 @@ function ShowMyStatsAddon:ShowConfigFrame()
         self:UpdateStatFrame()
         self:UpdateConfigFrame()
     end)
+
     local index={}
     for k,v in pairs(self.db:GetProfiles()) do
        index[v]=k
@@ -340,7 +339,6 @@ function ShowMyStatsAddon:ShowConfigFrame()
     dropdownProfiles:SetValue(currentProfileIndex)
     dropdownProfiles:SetLabel("Select Profile For Character")
     frame:AddChild(dropdownProfiles)
-
 
     local addProfile = AceGUI:Create("EditBox")
     addProfile:SetLabel("Add New Profile (with Default Settings)")
@@ -370,6 +368,73 @@ function ShowMyStatsAddon:ShowConfigFrame()
         self:UpdateConfigFrame()
     end)
     frame:AddChild(addCopiedProfile)
+
+
+    local deleteProfileButton = AceGUI:Create("Button")
+    deleteProfileButton:SetText("Delete Selected Profile")
+    deleteProfileButton:SetWidth(200)
+
+    deleteProfileButton:SetCallback("OnClick", function()
+        -- Get the selected profile name from the dropdown
+        local selectedProfileKey = dropdownProfiles:GetValue()
+
+        if selectedProfileKey then
+            -- Retrieve the profile name from the profile key
+            local profileName = self.db:GetProfiles()[selectedProfileKey]
+
+            -- Check if the profile is "Default"
+            if profileName == "Default" then
+                print("The 'Default' profile cannot be deleted.")
+                return
+            end
+
+            -- Remove the profile from both profileKeys and profiles tables
+            for characterKey, linkedProfile in pairs(ShowMyStatsDB.profileKeys) do
+                if linkedProfile == profileName then
+                    ShowMyStatsDB.profileKeys[characterKey] = "Default"  -- Reassign to Default
+                end
+            end
+
+            ShowMyStatsDB.profiles[profileName] = nil
+
+            print("Profile '" .. profileName .. "' has been deleted. Default profile loaded.")
+
+            -- Refresh the profiles list
+            local profiles = self.db:GetProfiles()
+
+            -- Check if "Default" profile still exists
+            local defaultProfileExists = false
+            for _, profile in pairs(profiles) do
+                if profile == "Default" then
+                    defaultProfileExists = true
+                    break
+                end
+            end
+
+            if defaultProfileExists then
+                -- If "Default" exists, select it
+                dropdownProfiles:SetList(profiles)
+                dropdownProfiles:SetValue("Default")  -- Auto-select the Default profile
+                self.db:SetProfile("Default")
+            else
+                -- If "Default" doesn't exist, select nothing
+                dropdownProfiles:SetList(profiles)
+                dropdownProfiles:SetValue(nil)  -- Clear the selection
+                print("Default profile is missing. No profile selected.")
+            end
+
+            -- Update frames
+            self:MoveStatFrame()
+            self:UpdateStatFrame()
+            self:UpdateConfigFrame()
+        else
+            print("No profile selected.")
+        end
+    end)
+
+    frame:AddChild(deleteProfileButton)
+
+
 
 
     -- OVERWRITE CURRENT PROFILE BY SELECTED PROFILE SETTINGS
@@ -897,7 +962,7 @@ function ShowMyStatsAddon:GetStatInfo(statName)
         return self:GetHasteInfo(statName)
     elseif statName == "crit" then
         return self:GetCritInfo(statName)
-    elseif statName == "versatility" then -- for backwards compatibility (old config profiles)
+    elseif statName == "versatility" then
         return self:GetVersatilityDamageInfo(statName)
     elseif statName == "versatilityOutput" then
         return self:GetVersatilityDamageInfo(statName)
@@ -929,7 +994,7 @@ end
 
 
 -- GetBlockChance()
--- GetCritChance() 
+-- GetCritChance()
 -- GetDodgeChance()
 -- GetLifesteal()
 -- GetManaRegen()
@@ -1020,7 +1085,7 @@ function ShowMyStatsAddon:ConstructStatFrame()
         self.db.profile.background.color.r,
         self.db.profile.background.color.g,
         self.db.profile.background.color.b
-    ); 
+    );
     self.backgroundTexture:SetAlpha(self.db.profile.background.color.a);
     self:MoveStatFrame()
     self.f:Show()
@@ -1075,7 +1140,7 @@ function ShowMyStatsAddon:UpdateStatFrameBackgroundTexture()
         self.db.profile.background.color.r,
         self.db.profile.background.color.g,
         self.db.profile.background.color.b
-    ); 
+    );
     self.backgroundTexture:SetAlpha(self.db.profile.background.color.a);
 end
 
