@@ -76,6 +76,7 @@ local defaults = {
             y = -250,
             anchor = 'TOP',
         },
+        showEmptyStats = true,
         strength = {
             template = "{S}: {R}",
         },
@@ -599,6 +600,16 @@ function ShowMyStatsAddon:ShowConfigFrame()
     headingStats:SetText("Stat Configuration")
     frame:AddChild(headingStats)
 
+    local checkboxEmptyStats = AceGUI:Create("CheckBox")
+    checkboxEmptyStats:SetLabel("Show Stats with 0 Rating")
+    checkboxEmptyStats:SetWidth(650)
+    checkboxEmptyStats:SetValue(self.db.profile.showEmptyStats)
+    checkboxEmptyStats:SetCallback("OnValueChanged", function(widget, event, value)
+        self.db.profile.showEmptyStats = value
+        self:UpdateStatFrame()
+    end)
+    frame:AddChild(checkboxEmptyStats)
+
     local scrollcontainer = AceGUI:Create("InlineGroup", BackdropTemplateMixin and "BackdropTemplate") -- best: SimpleGroup "InlineGroup" is also good
     --scrollcontainer:SetFullWidth(true)
     scrollcontainer:SetWidth(650)
@@ -608,8 +619,6 @@ function ShowMyStatsAddon:ShowConfigFrame()
     local scroll = AceGUI:Create("ScrollFrame", BackdropTemplateMixin and "BackdropTemplate")
     scroll:SetLayout("Flow") -- probably?
     scrollcontainer:AddChild(scroll)
-
-
 
     for statIndex, statName in ipairs(self.db.profile.stats) do
         --firstToUpper(statName) .. "
@@ -759,13 +768,15 @@ end
 
 
 function ShowMyStatsAddon:FillTemplate(statName, percentage, rating)
-    if (percentage ~= "") then
-        percentage = string.format("%.0f", percentage)
+    if self.db.profile.showEmptyStats or rating ~= 0 then
+        if percentage ~= "" then
+            percentage = string.format("%.0f", percentage)
+        end
+        if rating ~= "" then
+            rating = string.format("%.0f", rating)
+        end
+        return self.db.profile[statName].template:gsub("%{S}", firstToUpper(statID_to_description[statName])):gsub("%{P}", percentage):gsub("%{R}", rating)
     end
-    if (rating ~= "") then
-        rating = string.format("%.0f", rating)
-    end
-    return self.db.profile[statName].template:gsub("%{S}", firstToUpper(statID_to_description[statName])):gsub("%{P}", percentage):gsub("%{R}", rating)
 end
 
 
@@ -1060,24 +1071,27 @@ function ShowMyStatsAddon:ConstructStatFrame()
     local counter = 0
     for statIndex, statName in ipairs(self.db.profile.stats) do
         self.text[statIndex] = self.f:CreateFontString(nil, "OVERLAY", "GameTooltipText")
-        self.text[statIndex]:SetFont(self.font, self.db.profile.font.size, self.outline)
-        self.text[statIndex]:SetPoint(self.alignment, 0, (counter) * (-self.db.profile.font.size))
-        self.text[statIndex]:SetHeight(self.db.profile.font.size)
-        --self.text[statIndex]:SetShadowColor(0,0,0)
-        --self.text[statIndex]:SetShadowOffset(1,1)
-        self.text[statIndex]:SetTextColor(
-            self.db.profile[statName].color.r,
-            self.db.profile[statName].color.g,
-            self.db.profile[statName].color.b,
-            self.db.profile[statName].color.a
-        )
-        if self.db.profile[statName].enabled then
-            self.text[statIndex]:SetText(self:GetStatInfo(statName))
-            counter = counter + 1
-        else
-            self.text[statIndex]:SetText("")
+        local statInfo = self:GetStatInfo(statName)
+        if statInfo then
+            self.text[statIndex]:SetFont(self.font, self.db.profile.font.size, self.outline)
+            self.text[statIndex]:SetPoint(self.alignment, 0, (counter) * (-self.db.profile.font.size))
+            self.text[statIndex]:SetHeight(self.db.profile.font.size)
+            --self.text[statIndex]:SetShadowColor(0,0,0)
+            --self.text[statIndex]:SetShadowOffset(1,1)
+            self.text[statIndex]:SetTextColor(
+                self.db.profile[statName].color.r,
+                self.db.profile[statName].color.g,
+                self.db.profile[statName].color.b,
+                self.db.profile[statName].color.a
+            )
+            if self.db.profile[statName].enabled then
+                self.text[statIndex]:SetText(statInfo)
+                counter = counter + 1
+            else
+                self.text[statIndex]:SetText("")
+            end
+            self.text[statIndex]:Show()
         end
-        self.text[statIndex]:Show()
     end
     self.backgroundTexture = self.f:CreateTexture("ARTWORK");
     self.backgroundTexture:SetAllPoints();
@@ -1095,26 +1109,33 @@ function ShowMyStatsAddon:UpdateStatFrame()
     local widestText = 0
     local counter = 0
     for statIndex, statName in ipairs(self.db.profile.stats) do
-        self.text[statIndex]:SetFont(self.font, self.db.profile.font.size, self.outline)
-        self.text[statIndex]:ClearAllPoints()
-        self.text[statIndex]:SetPoint(self.alignment, 0, (counter) * (-self.db.profile.font.size))
-        self.text[statIndex]:SetHeight(self.db.profile.font.size)
-        self.text[statIndex]:SetTextColor(
-            self.db.profile[statName].color.r,
-            self.db.profile[statName].color.g,
-            self.db.profile[statName].color.b,
-            self.db.profile[statName].color.a
-        )
-        if self.db.profile[statName].enabled then
-            local text = self:GetStatInfo(statName)
-            self.text[statIndex]:SetText(text)
-            local stringWidth = self.text[statIndex]:GetStringWidth()
-            if stringWidth > widestText then
-                widestText = stringWidth
+        local statInfo = self:GetStatInfo(statName)
+        if statInfo then
+            self.text[statIndex]:SetFont(self.font, self.db.profile.font.size, self.outline)
+            self.text[statIndex]:ClearAllPoints()
+            self.text[statIndex]:SetPoint(self.alignment, 0, (counter) * (-self.db.profile.font.size))
+            self.text[statIndex]:SetHeight(self.db.profile.font.size)
+            self.text[statIndex]:SetTextColor(
+                self.db.profile[statName].color.r,
+                self.db.profile[statName].color.g,
+                self.db.profile[statName].color.b,
+                self.db.profile[statName].color.a
+            )
+            if self.db.profile[statName].enabled then
+                self.text[statIndex]:SetText(statInfo)
+                local stringWidth = self.text[statIndex]:GetStringWidth()
+                if stringWidth > widestText then
+                    widestText = stringWidth
+                end
+                counter = counter + 1
+            else
+                self.text[statIndex]:SetText("")
             end
-            counter = counter + 1
+            if not self.text[statIndex]:IsShown() then
+                self.text[statIndex]:Show()
+            end
         else
-            self.text[statIndex]:SetText("")
+            self.text[statIndex]:Hide()
         end
     end
 
